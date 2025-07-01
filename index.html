@@ -1,4 +1,10 @@
-<!DOCTYPE html>
+try {
+                // Создаем выбранную дату и время
+                const selectedDateTime = new Date(`${datePicker.value}T${timePicker.value}`);
+                const selectedTimestamp = Math.floor(selectedDateTime.getTime() / 1000);
+                
+                // Создаем метаданные с выбранным временем
+                const<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -219,29 +225,56 @@
             mintButton.textContent = 'Подготовка данных...';
 
             try {
-                const metadataUrl = "https://ruslankuznetsov.github.io/timedate2nft/sample-metadata.json";
+                // Создаем выбранную дату и время
+                const selectedDateTime = new Date(`${datePicker.value}T${timePicker.value}`);
+                const selectedTimestamp = Math.floor(selectedDateTime.getTime() / 1000);
                 
-                // Генерируем простое и безопасное 64-битное число
-                const queryId = Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 100000);
+                // Простое сообщение для mint NFT
+                const queryId = Math.floor(Math.random() * 1000000000);
+                const mintAmount = TonWeb.utils.toNano('0.05'); // 0.05 TON для mint
                 
-                const body = new tonweb.boc.Cell();
-                body.bits.writeUint(1, 32); // op code для mint
+                // Создаем простой payload для mint
+                const body = new TonWeb.boc.Cell();
+                body.bits.writeUint(1, 32); // mint opcode
                 body.bits.writeUint(queryId, 64); // query_id
+                body.bits.writeUint(0, 64); // item_index (автоматически назначается)
+                body.bits.writeCoins(mintAmount); // amount для форвардинга
                 
+                // NFT content (метаданные)
+                const nftContent = new TonWeb.boc.Cell();
+                const metadataJson = JSON.stringify({
+                    name: `Time NFT ${selectedDateTime.toLocaleString()}`,
+                    description: `NFT created for specific time: ${selectedDateTime.toLocaleString()}`,
+                    image: "https://via.placeholder.com/500x500.png?text=Time+NFT",
+                    attributes: [
+                        {
+                            trait_type: "Selected Date",
+                            value: datePicker.value
+                        },
+                        {
+                            trait_type: "Selected Time", 
+                            value: timePicker.value
+                        },
+                        {
+                            trait_type: "Unix Timestamp",
+                            value: selectedTimestamp
+                        }
+                    ]
+                });
+                
+                // Записываем метаданные как off-chain content
+                nftContent.bits.writeUint(0x01, 8); // off-chain content flag
+                nftContent.bits.writeString(`data:application/json;base64,${btoa(metadataJson)}`);
+                
+                // Адрес владельца
                 const ownerAddress = new TonWeb.utils.Address(tonConnectUI.wallet.account.address);
-                const itemContent = new tonweb.boc.Cell();
-                itemContent.bits.writeString(metadataUrl);
+                body.bits.writeAddress(ownerAddress);
+                body.refs.push(nftContent);
                 
-                const nftItemMessage = new tonweb.boc.Cell();
-                nftItemMessage.bits.writeAddress(ownerAddress);
-                nftItemMessage.refs.push(itemContent);
-                
-                body.refs.push(nftItemMessage);
                 const payload = TonWeb.utils.bytesToBase64(await body.toBoc());
 
                 const transaction = {
-                    // Используем точное время из блокчейна для validUntil (+ 6 минут)
-                    validUntil: reliableBlockchainTime + 360,
+                    validUntil: reliableBlockchainTime + 600, // 10 минут
                     messages: [{
                         address: NFT_COLLECTION_ADDRESS,
                         amount: MINT_PRICE,
