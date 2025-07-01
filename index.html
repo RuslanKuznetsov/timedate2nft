@@ -94,18 +94,8 @@
 
     <script>
         // 3. Инициализация TON Connect UI
-        // ВАЖНО: Перед публикацией приложения, вам нужно создать файл tonconnect-manifest.json
-        // и разместить его в корне вашего сайта.
-        // Замените URL ниже на реальную ссылку на ваш манифест.
-        //
-        // Пример содержимого tonconnect-manifest.json:
-        // {
-        //   "url": "https://<your-app-url>.github.io",
-        //   "name": "Time NFT App",
-        //   "iconUrl": "https://<your-app-url>.github.io/icon.png"
-        // }
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: 'https://gist.githubusercontent.com/siandreev/75f1a2ff33620f2cb6333900fa510bd9/raw/tonconnect-manifest.json', // ВАЖНО: Замените на свою ссылку!
+            manifestUrl: 'https://ruslankuznetsov.github.io/timedate2nft/tonconnect-manifest.json',
             buttonRootId: 'wallet-connect-button'
         });
 
