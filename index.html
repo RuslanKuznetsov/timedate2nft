@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NFT Времени</title>
+    <!-- 1. Подключение скрипта TON Connect UI -->
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,7 +31,10 @@
         }
     </style>
 </head>
-<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4">
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4 relative">
+
+    <!-- 2. Контейнер для кнопки подключения кошелька -->
+    <div id="wallet-connect-button" class="absolute top-5 right-5 z-10"></div>
 
     <div class="w-full max-w-md mx-auto">
         <div class="bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8">
@@ -88,7 +93,23 @@
 
 
     <script>
-        // Получаем ссылки на элементы DOM
+        // 3. Инициализация TON Connect UI
+        // ВАЖНО: Перед публикацией приложения, вам нужно создать файл tonconnect-manifest.json
+        // и разместить его в корне вашего сайта.
+        // Замените URL ниже на реальную ссылку на ваш манифест.
+        //
+        // Пример содержимого tonconnect-manifest.json:
+        // {
+        //   "url": "https://<your-app-url>.github.io",
+        //   "name": "Time NFT App",
+        //   "iconUrl": "https://<your-app-url>.github.io/icon.png"
+        // }
+        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+            manifestUrl: 'https://gist.githubusercontent.com/siandreev/75f1a2ff33620f2cb6333900fa510bd9/raw/tonconnect-manifest.json', // ВАЖНО: Замените на свою ссылку!
+            buttonRootId: 'wallet-connect-button'
+        });
+
+        // Получаем ссылки на остальные элементы DOM
         const datePicker = document.getElementById('date-picker');
         const timePicker = document.getElementById('time-picker');
         const mintButton = document.getElementById('mint-button');
@@ -107,7 +128,6 @@
         function showModal(message) {
             modalText.textContent = message;
             modal.classList.remove('hidden');
-            // Добавляем классы для анимации
             modal.querySelector('.modal-backdrop').classList.add('opacity-100');
             modal.querySelector('.modal-content').classList.add('scale-100');
         }
@@ -122,20 +142,18 @@
         // Устанавливаем текущую дату и время в поля ввода
         function setDefaultDateTime() {
             const now = new Date();
-            // Корректируем часовой пояс для корректного отображения в input[type=date]
             now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
             datePicker.value = now.toISOString().slice(0, 10);
             timePicker.value = now.toISOString().slice(11, 16);
         }
         
-        setDefaultDateTime(); // Вызываем при загрузке страницы
+        setDefaultDateTime();
 
         // Обработчик клика по кнопке "Сделать NFT"
         mintButton.addEventListener('click', () => {
             const dateValue = datePicker.value;
             const timeValue = timePicker.value;
 
-            // Проверка, выбраны ли дата и время
             if (!dateValue || !timeValue) {
                 errorMessage.classList.remove('hidden');
                 return;
@@ -143,10 +161,8 @@
             
             errorMessage.classList.add('hidden');
 
-            // Создаем объект Date из выбранных значений
             const selectedDateTime = new Date(`${dateValue}T${timeValue}`);
 
-            // Форматируем дату и время для вывода
             const options = {
                 year: 'numeric',
                 month: 'long',
@@ -157,7 +173,6 @@
             };
             const formattedDateTime = selectedDateTime.toLocaleString('ru-RU', options);
 
-            // Отображаем результат
             resultText.textContent = `Токен зафиксирован на: ${formattedDateTime}`;
             resultCard.classList.remove('hidden');
             resultCard.classList.add('fade-in');
@@ -165,6 +180,12 @@
 
         // Обработчик для кнопки "Опубликовать"
         publishButton.addEventListener('click', () => {
+             // Проверяем, подключен ли кошелек
+            if (!tonConnectUI.connected) {
+                showModal('Пожалуйста, сначала подключите кошелек.');
+                return;
+            }
+            // Здесь будет логика публикации в блокчейн
             showModal('Ваш токен времени успешно "опубликован"! (Это симуляция)');
         });
 
@@ -172,7 +193,6 @@
         copyButton.addEventListener('click', () => {
             const textToCopy = resultText.textContent;
             
-            // Используем document.execCommand для совместимости
             const textArea = document.createElement('textarea');
             textArea.value = textToCopy;
             document.body.appendChild(textArea);
@@ -198,3 +218,13 @@
     </script>
 </body>
 </html>
+```
+### Что было изменено:
+
+1.  **Подключен скрипт TON Connect:** В секцию `<head>` добавлена строка для загрузки официальной библиотеки `tonconnect-ui`.
+2.  **Добавлена кнопка:** В правом верхнем углу теперь есть место (`<div id="wallet-connect-button">`), куда библиотека автоматически вставит кнопку "Connect Wallet".
+3.  **Инициализация кошелька:** В тег `<script>` добавлен код, который инициализирует `TonConnectUI`.
+    * **Важный момент:** Для работы `TonConnectUI` требуется `manifestUrl` — ссылка на специальный файл `tonconnect-manifest.json`, который вы должны будете создать и разместить вместе с вашим приложением. Я добавил в код подробный комментарий с примером и временную ссылку, чтобы вы могли сразу протестировать функционал.
+4.  **Проверка подключения:** Кнопка "Опубликовать" теперь сначала проверяет, подключен ли кошелек, прежде чем выполнять действие.
+
+Теперь вы можете нажать "Preview", и вы увидите в правом верхнем углу кнопку для подключения кошелька Tonkeep
