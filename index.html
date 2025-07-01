@@ -114,52 +114,66 @@
             }, 300);
         }
         
-        // Получение точного времени из блокчейна TON
+        // Улучшенная функция получения точного времени из блокчейна TON
         async function getBlockchainTime() {
             mintButton.disabled = true;
             mintButton.textContent = 'Синхронизация с блокчейном...';
+            let timeValue = null;
             
+            // Попытка 1: Toncenter
             try {
-                // Основной API: Toncenter
+                console.log('Попытка 1: Запрос к Toncenter...');
                 const response = await fetch('https://testnet.toncenter.com/api/v2/jsonRPC', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        method: 'getLastBlock',
-                        params: {},
-                        id: 1,
-                        jsonrpc: "2.0"
-                    })
+                    body: JSON.stringify({ method: 'getLastBlock', params: {}, id: 1, jsonrpc: "2.0" })
                 });
-                if (!response.ok) throw new Error(`Toncenter API failed: ${response.statusText}`);
+                if (!response.ok) throw new Error(`HTTP status ${response.status}`);
                 const data = await response.json();
-                if (data.error) throw new Error(`Toncenter API error: ${data.error.message}`);
-                
-                reliableBlockchainTime = data.result.now;
-                console.log('Время из блокчейна (Toncenter):', reliableBlockchainTime, new Date(reliableBlockchainTime * 1000));
+                console.log('Ответ от Toncenter:', data);
+                if (data.error) throw new Error(`API error: ${data.error.message}`);
+                if (data.result && typeof data.result.now === 'number') {
+                    timeValue = data.result.now;
+                } else {
+                    throw new Error('Неверный формат ответа от Toncenter');
+                }
+            } catch (error) {
+                console.warn("Ошибка при запросе к Toncenter:", error);
+                timeValue = null; // Сбрасываем на случай частичного успеха
+            }
 
-            } catch (error1) {
-                console.warn("Основной узел (Toncenter) не ответил:", error1);
-                
+            // Попытка 2: TonAPI (если первая не удалась)
+            if (timeValue === null) {
                 try {
-                    // Резервный API: TonAPI
                     mintButton.textContent = 'Используем резервный узел...';
+                    console.log('Попытка 2: Запрос к TonAPI...');
                     const response = await fetch('https://testnet.tonapi.io/v2/blockchain/masterchain-head');
-                    if (!response.ok) throw new Error(`TonAPI failed: ${response.statusText}`);
+                    if (!response.ok) throw new Error(`HTTP status ${response.status}`);
                     const data = await response.json();
-                    reliableBlockchainTime = data.sync_time;
-                    console.log('Время из блокчейна (TonAPI):', reliableBlockchainTime, new Date(reliableBlockchainTime * 1000));
-                } catch (error2) {
-                    console.error("Резервный узел (TonAPI) также не ответил:", error2);
-                    showModal('Не удалось синхронизироваться с блокчейном TON. Попробуйте обновить страницу.');
-                    mintButton.textContent = 'Ошибка синхронизации';
-                    return;
+                    console.log('Ответ от TonAPI:', data);
+                    if (data && typeof data.sync_time === 'number') {
+                        timeValue = data.sync_time;
+                    } else {
+                        throw new Error('Неверный формат ответа от TonAPI');
+                    }
+                } catch (error) {
+                    console.error("Ошибка при запросе к TonAPI:", error);
+                    timeValue = null;
                 }
             }
 
-            // Этот код выполнится, если хотя бы один узел ответил
-            mintButton.disabled = false;
-            mintButton.textContent = 'Создать NFT в Testnet';
+            // Финальная проверка
+            if (timeValue !== null) {
+                reliableBlockchainTime = timeValue;
+                console.log('Успешная синхронизация. Время блокчейна:', reliableBlockchainTime, new Date(reliableBlockchainTime * 1000));
+                mintButton.disabled = false;
+                mintButton.textContent = 'Создать NFT в Testnet';
+            } else {
+                console.error('Не удалось получить время ни с одного из источников.');
+                showModal('Не удалось синхронизироваться с блокчейном TON. Пожалуйста, проверьте консоль (F12) и обновите страницу.');
+                mintButton.textContent = 'Ошибка синхронизации';
+                // Оставляем кнопку заблокированной
+            }
         }
 
 
