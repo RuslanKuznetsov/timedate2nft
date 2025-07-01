@@ -83,10 +83,10 @@
         });
         const tonweb = new TonWeb();
 
-        // АДРЕС СМАРТ-КОНТРАКТА КОЛЛЕКЦИИ В ТЕСТОВОЙ СЕТИ
-        const NFT_COLLECTION_ADDRESS = 'EQBYP5gq_1Mmpd64el3nVCj9P2pPWs2a8sE2Tj2vgy9r3M-L';
-        // СТОИМОСТЬ МИНТА В НАНОТОНАХ (0.05 TON)
-        const MINT_PRICE = '50000000';
+        // НОВЫЙ АДРЕС СМАРТ-КОНТРАКТА КОЛЛЕКЦИИ В ТЕСТОВОЙ СЕТИ
+        const NFT_COLLECTION_ADDRESS = 'EQD4QY8soH6j6O-x-bK30e-Y_p8n_e-rI2vB8l-s6asBfL0W';
+        // УВЕЛИЧЕННАЯ СТОИМОСТЬ МИНТА В НАНОТОНАХ (0.2 TON)
+        const MINT_PRICE = '200000000';
 
         // Получаем ссылки на остальные элементы DOM
         const datePicker = document.getElementById('date-picker');
@@ -123,6 +123,7 @@
 
         // Функция для создания NFT
         mintButton.addEventListener('click', async () => {
+            console.log("Нажата кнопка 'Создать NFT'");
             const dateValue = datePicker.value;
             const timeValue = timePicker.value;
 
@@ -136,38 +137,24 @@
                 showModal('Пожалуйста, сначала подключите кошелек.');
                 return;
             }
+            console.log("Кошелек подключен.");
 
-            // --- НОВАЯ ПРОВЕРКА: Убеждаемся, что кошелек в Testnet ---
-            if (tonConnectUI.wallet.account.chain !== '-3') { // '-3' это идентификатор Testnet
+            if (tonConnectUI.wallet.account.chain !== '-3') {
                 showModal('Ошибка: Пожалуйста, переключите ваш кошелек на Testnet и попробуйте снова.');
                 return;
             }
+            console.log("Проверка сети Testnet пройдена.");
             
             mintButton.disabled = true;
             mintButton.textContent = 'Подготовка данных...';
 
             try {
-                // --- Шаг 1: Подготовка метаданных ---
-                const selectedDateTime = new Date(`${dateValue}T${timeValue}`);
-                const formattedDate = selectedDateTime.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' });
-                const formattedTime = selectedDateTime.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-
-                const metadata = {
-                    name: `Токен Времени: ${formattedDate}`,
-                    description: `Этот NFT навсегда зафиксировал момент: ${formattedDate}, ${formattedTime}`,
-                    image: "https://ruslankuznetsov.github.io/timedate2nft/time-nft-image.png",
-                    attributes: [
-                        { trait_type: "Date", value: dateValue },
-                        { trait_type: "Time", value: timeValue }
-                    ]
-                };
-
                 const metadataUrl = "https://ruslankuznetsov.github.io/timedate2nft/sample-metadata.json";
+                console.log("URL метаданных:", metadataUrl);
                 
-                // --- Шаг 2: Создание тела транзакции для вызова минта ---
                 const body = new tonweb.boc.Cell();
                 body.bits.writeUint(1, 32); // op-code для минта
-                body.bits.writeUint(0, 64); // query-id
+                body.bits.writeUint(Math.floor(Math.random() * 2**64), 64); // query-id
                 
                 const ownerAddress = new TonWeb.utils.Address(tonConnectUI.wallet.account.address);
                 
@@ -181,11 +168,10 @@
                 body.refs.push(nftItemMessage);
                 
                 const payload = TonWeb.utils.bytesToBase64(await body.toBoc());
+                console.log("Payload создан:", payload);
 
-                // --- Шаг 3: Формирование и отправка транзакции ---
                 const transaction = {
                     validUntil: Math.floor(Date.now() / 1000) + 360,
-                    // network: 'testnet' - этот параметр больше не нужен, TonConnectUI определяет сеть автоматически
                     messages: [
                         {
                             address: NFT_COLLECTION_ADDRESS,
@@ -194,11 +180,13 @@
                         }
                     ]
                 };
+                console.log("Транзакция сформирована, отправка...", transaction);
 
                 mintButton.textContent = 'Ожидаем подтверждения...';
                 showModal('Пожалуйста, подтвердите транзакцию в вашем кошельке...');
                 
                 const result = await tonConnectUI.sendTransaction(transaction);
+                console.log("Транзакция отправлена, результат:", result);
                 
                 hideModal();
                 showModal(`Транзакция успешно отправлена! Проверьте ваш кошелек (вкладку "Коллекционные предметы") через несколько минут.`);
