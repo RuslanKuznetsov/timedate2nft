@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NFT Времени</title>
-    <!-- 1. Подключение скриптов TON -->
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <script src="https://unpkg.com/tonweb@latest/dist/tonweb.js"></script>
     
@@ -24,7 +23,6 @@
 </head>
 <body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4 relative">
 
-    <!-- Контейнер для кнопки подключения кошелька -->
     <div id="wallet-connect-button" class="absolute top-5 right-5 z-10"></div>
 
     <div class="w-full max-w-md mx-auto">
@@ -35,7 +33,6 @@
                 <p class="text-gray-400 mt-2">Выберите точную дату и время, чтобы создать настоящий NFT в тестовой сети TON.</p>
             </div>
 
-            <!-- Форма выбора даты и времени -->
             <div class="space-y-4">
                 <div>
                     <label for="date-picker" class="block text-sm font-medium text-gray-300 mb-1">Дата</label>
@@ -48,7 +45,6 @@
                 <p id="error-message" class="text-red-400 text-sm text-center hidden">Пожалуйста, выберите дату и время.</p>
             </div>
 
-            <!-- Кнопка "Сделать NFT" -->
             <div class="mt-8">
                 <button id="mint-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105 shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
                     Создать NFT в Testnet
@@ -57,7 +53,6 @@
         </div>
     </div>
 
-    <!-- Модальное окно для уведомлений -->
     <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden opacity-0">
         <div id="modal-content-div" class="bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-sm text-center scale-95">
             <p id="modal-text" class="text-lg"></p>
@@ -126,14 +121,14 @@
                 const response = await fetch('https://testnet.toncenter.com/api/v2/jsonRPC', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    // ИСПОЛЬЗУЕМ ДРУГОЙ, БОЛЕЕ НАДЕЖНЫЙ МЕТОД
+                    // ИСПОЛЬЗУЕМ ИСПРАВЛЕННЫЙ МЕТОД ЗАПРОСА
                     body: JSON.stringify({ method: 'getMasterchainInfo', params: [], id: 1, jsonrpc: "2.0" })
                 });
                 if (!response.ok) throw new Error(`HTTP status ${response.status}`);
                 const data = await response.json();
                 console.log('Ответ от Toncenter:', data);
                 if (data.error) throw new Error(`API error: ${data.error.message}`);
-                // ИСПРАВЛЕН ПУТЬ К ДАННЫМ
+                // ИСПОЛЬЗУЕМ ИСПРАВЛЕННЫЙ ПУТЬ К ВРЕМЕНИ
                 if (data.result && data.result.last && typeof data.result.last.now === 'number') {
                     timeValue = data.result.last.now;
                 } else {
@@ -153,7 +148,7 @@
                     if (!response.ok) throw new Error(`HTTP status ${response.status}`);
                     const data = await response.json();
                     console.log('Ответ от TonAPI:', data);
-                    // ИСПРАВЛЕН ПУТЬ К ДАННЫМ
+                    // ИСПОЛЬЗУЕМ ИСПРАВЛЕННЫЙ ПУТЬ К ВРЕМЕНИ
                     if (data && data.last_block && typeof data.last_block.utime === 'number') {
                         timeValue = data.last_block.utime;
                     } else {
