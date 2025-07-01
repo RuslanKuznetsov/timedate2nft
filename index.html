@@ -69,16 +69,6 @@
             manifestUrl: 'https://ruslankuznetsov.github.io/timedate2nft/tonconnect-manifest.json',
             buttonRootId: 'wallet-connect-button'
         });
-        
-        // Обработка событий подключения для предотвращения ошибок bridge
-        tonConnectUI.onStatusChange((wallet) => {
-            if (wallet) {
-                console.log('Кошелек подключен:', wallet.account.address);
-            } else {
-                console.log('Кошелек отключен');
-            }
-        });
-        
         const tonweb = new TonWeb();
 
         // КОНСТАНТЫ
@@ -231,8 +221,8 @@
             try {
                 const metadataUrl = "https://ruslankuznetsov.github.io/timedate2nft/sample-metadata.json";
                 
-                // Генерируем простое и безопасное число для query_id
-                const queryId = Math.floor(Math.random() * 1000000000);
+                // Генерируем простое и безопасное 64-битное число
+                const queryId = Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 100000);
                 
                 const body = new tonweb.boc.Cell();
                 body.bits.writeUint(1, 32); // op code для mint
@@ -250,7 +240,8 @@
                 const payload = TonWeb.utils.bytesToBase64(await body.toBoc());
 
                 const transaction = {
-                    validUntil: reliableBlockchainTime + 600, // 10 минут
+                    // Используем точное время из блокчейна для validUntil (+ 6 минут)
+                    validUntil: reliableBlockchainTime + 360,
                     messages: [{
                         address: NFT_COLLECTION_ADDRESS,
                         amount: MINT_PRICE,
@@ -261,25 +252,10 @@
                 mintButton.textContent = 'Ожидаем подтверждения...';
                 showModal('Пожалуйста, подтвердите транзакцию в вашем кошельке...');
                 
-                // Добавляем таймаут для транзакции
-                const transactionPromise = tonConnectUI.sendTransaction(transaction);
-                const timeoutPromise = new Promise((_, reject) => {
-                    setTimeout(() => reject(new Error('Timeout')), 60000); // 60 секунд таймаут
-                });
+                await tonConnectUI.sendTransaction(transaction);
                 
-                try {
-                    await Promise.race([transactionPromise, timeoutPromise]);
-                    
-                    hideModal();
-                    setTimeout(() => showModal(`Транзакция успешно отправлена! Проверьте ваш кошелек через несколько минут.`), 350);
-                } catch (timeoutError) {
-                    if (timeoutError.message === 'Timeout') {
-                        hideModal();
-                        setTimeout(() => showModal('Транзакция может быть обработана. Проверьте ваш кошелек через несколько минут. Если NFT не появился, попробуйте еще раз.'), 350);
-                    } else {
-                        throw timeoutError; // Передаем другие ошибки дальше
-                    }
-                }
+                hideModal();
+                setTimeout(() => showModal(`Транзакция успешно отправлена! Проверьте ваш кошелек через несколько минут.`), 350);
 
             } catch (error) {
                 console.error('Ошибка при создании NFT:', error);
