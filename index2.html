@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>NFT Времени — TON Testnet</title>
+  <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+  <script src="https://unpkg.com/tonweb@latest/dist/tonweb.js"></script>
+  <style>
+    body { background: #18181b; color: #fafafa; font-family: Inter,sans-serif; }
+    #wallet-connect-button { position: fixed; top: 20px; right: 20px; z-index: 1000; }
+    .card { background: #23272f; border-radius: 12px; padding: 20px; margin: 32px auto; max-width: 420px; }
+    label { display:block; margin: 8px 0 2px 0; }
+    input, button { font-size: 16px; padding: 8px; border-radius: 6px; border: none; margin-bottom: 8px; }
+    button { background: #2563eb; color: #fff; font-weight: bold; cursor:pointer; }
+    .status { margin-top: 16px; padding: 10px; border-radius: 6px; }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .status-success { background: #d1fae5; color: #065f46; }
+    .status-error   { background: #fee2e2; color: #991b1b; }
+    .debug { font-family: monospace; font-size: 13px; background: #18181b; color: #a3a3a3; padding: 8px; border-radius: 6px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <div id="wallet-connect-button"></div>
+  <div class="card">
+    <h2>Создать NFT времени в TON Testnet</h2>
+    <label>Дата:</label>
+    <input type="date" id="date-picker">
+    <label>Время:</label>
+    <input type="time" id="time-picker">
+    <button id="mint-button">Создать NFT</button>
+    <div id="status" class="status" style="display:none"></div>
+    <div id="debug" class="debug" style="display:none"></div>
+  </div>
+<script>
+const API_KEY = 'dafd0e534ea822bfdd6211c330e05f93c99a35f3d1d7e185fa0b56682ef01363';
+const COLLECTION_ADDR = 'EQD4QY8soH6j6O-x-bK30e-Y_p8n_e-rI2vB8l-s6asBfL0W';
+const MANIFEST_URL = 'https://ruslankuznetsov.github.io/timedate2nft/tonconnect-manifest.json';
+const MINT_AMOUNT = TonWeb.utils.toNano('0.18'); // 0.18 TON
+
+const mintBtn = document.getElementById('mint-button');
+const dateInput = document.getElementById('date-picker');
+const timeInput = document.getElementById('time-picker');
+const statusDiv = document.getElementById('status');
+const debugDiv = document.getElementById('debug');
+function showStatus(msg, type='pending') {
+  statusDiv.textContent = msg;
+  statusDiv.className = 'status status-' + type;
+  statusDiv.style.display = 'block';
+}
+function debug(msg) {
+  debugDiv.style.display = 'block';
+  debugDiv.innerHTML += msg + '<br>';
+}
+
+const tonweb = new TonWeb(new TonWeb.HttpProvider(`https://testnet.toncenter.com/api/v2/jsonRPC?api_key=${API_KEY}`));
+const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+  manifestUrl: MANIFEST_URL, buttonRootId: 'wallet-connect-button'
+});
+tonConnectUI.uiOptions = { actionsConfiguration:{ modals:['before','success','error'], notifications:['before','success','error'] } };
+
+let blockchainTime = null;
+
+// Получить точное время блокчейна
+async function getBlockchainTime() {
+  try {
+    let res = await fetch(`https://testnet.toncenter.com/api/v2/getMasterchainInfo?api_key=${API_KEY}`);
+    let j = await res.json();
+    let seqno = j.result.last.seqno;
+    res = await fetch(`https://testnet.toncenter.com/api/v2/getBlockHeader?workchain=-1&shard=-9223372036854775808&seqno=${seqno}&api_key=${API_KEY}`);
+    let bj = await res.json();
+    blockchainTime = bj.result.gen_utime;
+    debug('blockchainTime=' + blockchainTime);
+  } catch(e) {
+    blockchainTime = Math.floor(Date.now()/1000);
+    debug('Fallback blockchainTime=' + blockchainTime);
+  }
+}
+
+// Получить index коллекции (по TIP-62)
+async function getCollectionIndex() {
+  const collection = new tonweb.token.nft.NFTCollection({
+    address: COLLECTION_ADDR, provider: tonweb.provider
+  });
+  const data = await collection.methods.get_collection_data().call();
+  return data[0];
+}
+
+// Собрать payload TIP-62
+async function createPayload(ownerAddr, index) {
+  const body = new tonweb.boc.Cell();
+  body.bits.writeUint(1,32); // op
+  body.bits.writeUint(Math.floor(Date.now()/1000),64); // query_id
+  body.bits.writeUint(index,64); // index
+
+  const msgCell = new tonweb.boc.Cell();
+  msgCell.bits.writeAddress(new TonWeb.utils.Address(ownerAddr));
+  const content = new tonweb.boc.Cell();
+  content.bits.writeUint(0,8); // off-chain
+  // короткий url вида "/{index}.json"
+  const url = `/${index}.json`;
+  const ub = new TextEncoder().encode(url);
+  ub.forEach(b=>content.bits.writeUint(b,8));
+  msgCell.refs.push(content);
+  body.refs.push(msgCell);
+  return TonWeb.utils.bytesToBase64(await body.toBoc());
+}
+
+mintBtn.onclick = async () => {
+  statusDiv.style.display = debugDiv.style.display = 'none';
+  debugDiv.innerHTML = '';
+  if(!dateInput.value || !timeInput.value) {
+    showStatus('Заполните дату и время', 'error'); return;
+  }
+  if(!tonConnectUI.connected) {
+    showStatus('Подключите кошелек', 'error'); return;
+  }
+  showStatus('Получение времени блокчейна...');
+  await getBlockchainTime();
+  showStatus('Получение index коллекции...');
+  let index;
+  try {
+    index = await getCollectionIndex();
+    debug('collection index=' + index);
+  } catch(e) {
+    showStatus('Ошибка получения index коллекции', 'error'); debug(e); return;
+  }
+  showStatus('Формирование payload...');
+  let payload;
+  try {
+    payload = await createPayload(tonConnectUI.wallet.account.address, index);
+    debug('payload base64 size=' + payload.length);
+  } catch(e) {
+    showStatus('Ошибка формирования payload', 'error'); debug(e); return;
+  }
+  showStatus('Ожидание подтверждения в кошельке...');
+  try {
+    await tonConnectUI.sendTransaction({
+      validUntil: blockchainTime + 900,
+      messages: [{
+        address: COLLECTION_ADDR,
+        amount: MINT_AMOUNT.toString(),
+        payload
+      }]
+    });
+    showStatus('Транзакция отправлена!', 'success');
+  } catch(e) {
+    showStatus('Ошибка: ' + (e.message || e), 'error');
+    debug(e);
+  }
+};
+
+// Инициализация
+window.onload = () => {
+  const now = new Date();
+  now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
+  dateInput.value = now.toISOString().slice(0,10);
+  timeInput.value = now.toISOString().slice(11,16);
+};
+</script>
+</body>
+</html>
