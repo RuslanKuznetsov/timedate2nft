@@ -114,7 +114,7 @@
             }, 300);
         }
         
-        // Улучшенная функция получения точного времени из блокчейна TON
+        // ИСПРАВЛЕННАЯ функция получения точного времени из блокчейна TON
         async function getBlockchainTime() {
             mintButton.disabled = true;
             mintButton.textContent = 'Синхронизация с блокчейном...';
@@ -126,20 +126,22 @@
                 const response = await fetch('https://testnet.toncenter.com/api/v2/jsonRPC', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ method: 'getLastBlock', params: {}, id: 1, jsonrpc: "2.0" })
+                    // ИСПОЛЬЗУЕМ ДРУГОЙ, БОЛЕЕ НАДЕЖНЫЙ МЕТОД
+                    body: JSON.stringify({ method: 'getMasterchainInfo', params: [], id: 1, jsonrpc: "2.0" })
                 });
                 if (!response.ok) throw new Error(`HTTP status ${response.status}`);
                 const data = await response.json();
                 console.log('Ответ от Toncenter:', data);
                 if (data.error) throw new Error(`API error: ${data.error.message}`);
-                if (data.result && typeof data.result.now === 'number') {
-                    timeValue = data.result.now;
+                // ИСПРАВЛЕН ПУТЬ К ДАННЫМ
+                if (data.result && data.result.last && typeof data.result.last.now === 'number') {
+                    timeValue = data.result.last.now;
                 } else {
                     throw new Error('Неверный формат ответа от Toncenter');
                 }
             } catch (error) {
                 console.warn("Ошибка при запросе к Toncenter:", error);
-                timeValue = null; // Сбрасываем на случай частичного успеха
+                timeValue = null;
             }
 
             // Попытка 2: TonAPI (если первая не удалась)
@@ -151,8 +153,9 @@
                     if (!response.ok) throw new Error(`HTTP status ${response.status}`);
                     const data = await response.json();
                     console.log('Ответ от TonAPI:', data);
-                    if (data && typeof data.sync_time === 'number') {
-                        timeValue = data.sync_time;
+                    // ИСПРАВЛЕН ПУТЬ К ДАННЫМ
+                    if (data && data.last_block && typeof data.last_block.utime === 'number') {
+                        timeValue = data.last_block.utime;
                     } else {
                         throw new Error('Неверный формат ответа от TonAPI');
                     }
@@ -172,7 +175,6 @@
                 console.error('Не удалось получить время ни с одного из источников.');
                 showModal('Не удалось синхронизироваться с блокчейном TON. Пожалуйста, проверьте консоль (F12) и обновите страницу.');
                 mintButton.textContent = 'Ошибка синхронизации';
-                // Оставляем кнопку заблокированной
             }
         }
 
