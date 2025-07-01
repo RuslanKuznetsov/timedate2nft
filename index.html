@@ -221,15 +221,21 @@
             try {
                 const metadataUrl = "https://ruslankuznetsov.github.io/timedate2nft/sample-metadata.json";
                 
+                // Генерируем безопасное 64-битное число
+                const queryId = BigInt(Date.now()) * BigInt(1000000) + BigInt(Math.floor(Math.random() * 1000000));
+                
                 const body = new tonweb.boc.Cell();
-                body.bits.writeUint(1, 32);
-                body.bits.writeUint(Math.floor(Math.random() * 2**64), 64);
+                body.bits.writeUint(1, 32); // op code для mint
+                body.bits.writeUint(queryId, 64); // query_id
+                
                 const ownerAddress = new TonWeb.utils.Address(tonConnectUI.wallet.account.address);
                 const itemContent = new tonweb.boc.Cell();
                 itemContent.bits.writeString(metadataUrl);
+                
                 const nftItemMessage = new tonweb.boc.Cell();
                 nftItemMessage.bits.writeAddress(ownerAddress);
                 nftItemMessage.refs.push(itemContent);
+                
                 body.refs.push(nftItemMessage);
                 const payload = TonWeb.utils.bytesToBase64(await body.toBoc());
 
