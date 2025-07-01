@@ -76,13 +76,22 @@ async function getBlockchainTime() {
   }
 }
 
-// Получить index коллекции (по TIP-62)
+// Получить index коллекции через runGetMethod
 async function getCollectionIndex() {
-  const collection = new tonweb.token.nft.NFTCollection({
-    address: COLLECTION_ADDR, provider: tonweb.provider
+  const res = await fetch('https://testnet.toncenter.com/api/v2/runGetMethod', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
+    body: JSON.stringify({
+      address: COLLECTION_ADDR,
+      method: 'get_collection_data',
+      stack: []
+    })
   });
-  const data = await collection.methods.get_collection_data().call();
-  return data[0];
+  const data = await res.json();
+  if (!data.ok) throw new Error('Ошибка get_collection_data: ' + data.description);
+  const stack = data.result.stack;
+  // Первый элемент — next_item_index
+  return BigInt(stack[0][1]);
 }
 
 // Собрать payload TIP-62
