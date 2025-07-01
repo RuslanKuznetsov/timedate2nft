@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NFT Времени</title>
-    <!-- 1. Подключение скриптов TON -->
+    <!-- 1. Подключение скрипта TON Connect -->
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -15,17 +15,9 @@
         body {
             font-family: 'Inter', sans-serif;
         }
-        /* Стили для модального окна */
-        .modal-backdrop {
-            transition: opacity 0.3s ease-in-out;
-        }
-        .modal-content {
-            transition: transform 0.3s ease-in-out;
-        }
-        /* Стиль для заблокированной кнопки */
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
+        /* Стили для плавного перехода */
+        #modal, #modal-content-div {
+            transition: all 0.3s ease-in-out;
         }
     </style>
 </head>
@@ -43,7 +35,7 @@
 
             <!-- Кнопка "Сделать NFT" -->
             <div class="mt-8">
-                <button id="mint-button" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105 shadow-lg">
+                <button id="mint-button" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105 shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
                     Отправить чистый перевод
                 </button>
             </div>
@@ -51,8 +43,8 @@
     </div>
 
     <!-- Модальное окно для уведомлений -->
-    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden modal-backdrop">
-        <div class="bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-sm text-center modal-content">
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden opacity-0">
+        <div id="modal-content-div" class="bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-sm text-center scale-95">
             <p id="modal-text" class="text-lg"></p>
             <button id="modal-close-button" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition">
                 OK
@@ -75,23 +67,30 @@
 
         // Получаем ссылки на остальные элементы DOM
         const mintButton = document.getElementById('mint-button');
-
-        // Модальное окно
         const modal = document.getElementById('modal');
+        const modalContent = document.getElementById('modal-content-div');
         const modalText = document.getElementById('modal-text');
         const modalCloseButton = document.getElementById('modal-close-button');
 
+        // ИСПРАВЛЕННАЯ функция для отображения модального окна
         function showModal(message) {
+            if (!modal || !modalContent || !modalText) return;
             modalText.textContent = message;
             modal.classList.remove('hidden');
-            modal.querySelector('.modal-backdrop').classList.add('opacity-100');
-            modal.querySelector('.modal-content').classList.add('scale-100');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modalContent.classList.remove('scale-95');
+            }, 10); // Небольшая задержка для срабатывания анимации
         }
 
+        // ИСПРАВЛЕННАЯ функция для скрытия модального окна
         function hideModal() {
-            modal.classList.add('hidden');
-            modal.querySelector('.modal-backdrop').classList.remove('opacity-100');
-            modal.querySelector('.modal-content').classList.remove('scale-100');
+            if (!modal || !modalContent) return;
+            modal.classList.add('opacity-0');
+            modalContent.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300); // Задержка соответствует времени анимации
         }
 
         // Функция для отправки тестовой транзакции
@@ -115,7 +114,6 @@
 
             try {
                 // --- Формирование САМОЙ ПРОСТОЙ транзакции ---
-                // Убраны все 'payload' и 'tonweb.js'
                 const transaction = {
                     validUntil: Math.floor(Date.now() / 1000) + 360,
                     messages: [
@@ -135,7 +133,7 @@
                 console.log("Транзакция отправлена, результат:", result);
                 
                 hideModal();
-                showModal(`Чистый перевод успешно отправлен! Проверьте историю вашего кошелька.`);
+                setTimeout(() => showModal(`Чистый перевод успешно отправлен! Проверьте историю вашего кошелька.`), 350);
 
             } catch (error) {
                 console.error('Ошибка при отправке чистого перевода:', error);
@@ -143,10 +141,8 @@
                 let errorMessageText = 'Произошла неизвестная ошибка.';
                 if (error && typeof error === 'object' && 'name' in error) {
                     if (error.name === 'UserRejectsError') errorMessageText = 'Вы отклонили транзакцию.';
-                    else if (error.name === 'WalletNotConnectedError') errorMessageText = 'Кошелек не подключен.';
-                    else if (error.name === 'TransactionExpiredError') errorMessageText = 'Время на подписание транзакции истекло.'
                 }
-                showModal(errorMessageText);
+                setTimeout(() => showModal(errorMessageText), 350);
             } finally {
                 mintButton.disabled = false;
                 mintButton.textContent = 'Отправить чистый перевод';
@@ -154,7 +150,11 @@
         });
         
         modalCloseButton.addEventListener('click', hideModal);
-        modal.addEventListener('click', (e) => { if (e.target === modal) hideModal(); });
+        modal.addEventListener('click', (e) => { 
+            if (e.target === modal) {
+                hideModal();
+            }
+        });
 
     </script>
 </body>
