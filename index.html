@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NFT Времени</title>
-    <!-- 1. Подключение скрипта TON Connect UI -->
+    <!-- 1. Подключение скриптов TON -->
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    <script src="https://unpkg.com/tonweb@latest/dist/tonweb.js"></script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,14 +15,6 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-        }
-        /* Стили для плавного появления */
-        .fade-in {
-            animation: fadeIn 0.5s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
         }
         /* Стили для модального окна */
         .modal-backdrop {
@@ -33,14 +27,14 @@
 </head>
 <body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4 relative">
 
-    <!-- 2. Контейнер для кнопки подключения кошелька -->
+    <!-- Контейнер для кнопки подключения кошелька -->
     <div id="wallet-connect-button" class="absolute top-5 right-5 z-10"></div>
 
     <div class="w-full max-w-md mx-auto">
         <div class="bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8">
             <div class="text-center mb-8">
                 <h1 class="text-3xl font-bold text-white">Создать NFT Времени</h1>
-                <p class="text-gray-400 mt-2">Выберите точную дату и время, чтобы зафиксировать момент.</p>
+                <p class="text-gray-400 mt-2">Выберите точную дату и время, чтобы зафиксировать момент в блокчейне.</p>
             </div>
 
             <!-- Форма выбора даты и времени -->
@@ -59,23 +53,7 @@
             <!-- Кнопка "Сделать NFT" -->
             <div class="mt-8">
                 <button id="mint-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105 shadow-lg">
-                    Сделать NFT
-                </button>
-            </div>
-        </div>
-
-        <!-- Область результата (скрыта по умолчанию) -->
-        <div id="result-card" class="bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8 mt-6 hidden">
-            <h2 class="text-2xl font-bold text-center mb-4">Ваш токен создан!</h2>
-            <div class="bg-gray-700 rounded-lg p-4 text-center">
-                <p class="text-lg text-white" id="result-text"></p>
-            </div>
-            <div class="mt-6 flex flex-col sm:flex-row gap-4">
-                <button id="publish-button" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105">
-                    Опубликовать
-                </button>
-                <button id="copy-button" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105">
-                    Копировать
+                    Сделать NFT и опубликовать в TON
                 </button>
             </div>
         </div>
@@ -93,20 +71,17 @@
 
 
     <script>
-        // 3. Инициализация TON Connect UI
+        // Инициализация библиотек
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: 'https://ruslankuznetsov.github.io/timedate2nft/tonconnect-manifest.json',
             buttonRootId: 'wallet-connect-button'
         });
+        const tonweb = new TonWeb();
 
         // Получаем ссылки на остальные элементы DOM
         const datePicker = document.getElementById('date-picker');
         const timePicker = document.getElementById('time-picker');
         const mintButton = document.getElementById('mint-button');
-        const resultCard = document.getElementById('result-card');
-        const resultText = document.getElementById('result-text');
-        const publishButton = document.getElementById('publish-button');
-        const copyButton = document.getElementById('copy-button');
         const errorMessage = document.getElementById('error-message');
 
         // Модальное окно
@@ -140,7 +115,8 @@
         setDefaultDateTime();
 
         // Обработчик клика по кнопке "Сделать NFT"
-        mintButton.addEventListener('click', () => {
+        mintButton.addEventListener('click', async () => {
+            // 1. Проверяем, выбраны ли дата и время
             const dateValue = datePicker.value;
             const timeValue = timePicker.value;
 
@@ -148,53 +124,75 @@
                 errorMessage.classList.remove('hidden');
                 return;
             }
-            
             errorMessage.classList.add('hidden');
 
-            const selectedDateTime = new Date(`${dateValue}T${timeValue}`);
-
-            const options = {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false
-            };
-            const formattedDateTime = selectedDateTime.toLocaleString('ru-RU', options);
-
-            resultText.textContent = `Токен зафиксирован на: ${formattedDateTime}`;
-            resultCard.classList.remove('hidden');
-            resultCard.classList.add('fade-in');
-        });
-
-        // Обработчик для кнопки "Опубликовать"
-        publishButton.addEventListener('click', () => {
-             // Проверяем, подключен ли кошелек
+            // 2. Проверяем, подключен ли кошелек
             if (!tonConnectUI.connected) {
                 showModal('Пожалуйста, сначала подключите кошелек.');
                 return;
             }
-            // Здесь будет логика публикации в блокчейн
-            showModal('Ваш токен времени успешно "опубликован"! (Это симуляция)');
-        });
 
-        // Обработчик для кнопки "Копировать"
-        copyButton.addEventListener('click', () => {
-            const textToCopy = resultText.textContent;
-            
-            const textArea = document.createElement('textarea');
-            textArea.value = textToCopy;
-            document.body.appendChild(textArea);
-            textArea.select();
+            // 3. Показываем состояние загрузки
+            showModal('Подготовка транзакции...');
+
             try {
-                document.execCommand('copy');
-                showModal('Текст скопирован в буфер обмена!');
-            } catch (err) {
-                console.error('Не удалось скопировать текст: ', err);
-                showModal('Ошибка при копировании.');
+                // 4. Форматируем дату и время для комментария в транзакции
+                const selectedDateTime = new Date(`${dateValue}T${timeValue}`);
+                const options = {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                };
+                const formattedDateTime = selectedDateTime.toLocaleString('ru-RU', options);
+                const nftDataString = `Токен зафиксирован на: ${formattedDateTime}`;
+
+                // 5. Создаем тело транзакции (payload) с комментарием
+                const cell = new tonweb.boc.Cell();
+                cell.bits.writeUint(0, 32); // Означает, что это текстовый комментарий
+                cell.bits.writeString(nftDataString);
+                const payloadBoc = await cell.toBoc();
+                const payload = TonWeb.utils.bytesToBase64(payloadBoc);
+
+                // 6. Формируем транзакцию
+                const transaction = {
+                    validUntil: Math.floor(Date.now() / 1000) + 360, // Транзакция действительна 6 минут
+                    messages: [
+                        {
+                            // Адрес назначения. Для реального минта это был бы адрес NFT коллекции.
+                            // Для примера, отправим на известный адрес доната TON Foundation.
+                            address: 'EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2N',
+                            // Сумма в нанотонах. 0.05 TON - это комиссия за минт/газ.
+                            amount: '50000000',
+                            // Наш payload с датой и временем
+                            payload: payload
+                        }
+                    ]
+                };
+
+                // 7. Отправляем транзакцию через Tonkeeper
+                showModal('Пожалуйста, подтвердите транзакцию в вашем кошельке...');
+                const result = await tonConnectUI.sendTransaction(transaction);
+
+                // 8. Обрабатываем успешный результат
+                showModal(`Транзакция успешно отправлена! Ваш момент зафиксирован в сети TON.`);
+
+            } catch (error) {
+                // 9. Обрабатываем ошибки
+                console.error('Ошибка при отправке транзакции:', error);
+                let errorMessageText = 'Произошла ошибка.';
+                // Проверяем известные типы ошибок от TonConnect
+                if (typeof error === 'object' && error !== null && 'message' in error) {
+                     if (error.message.includes('User rejected the transaction')) {
+                        errorMessageText = 'Вы отклонили транзакцию.';
+                    } else if (error.message.includes('Transaction was expired')) {
+                        errorMessageText = 'Время на подписание транзакции истекло.'
+                    }
+                }
+                showModal(errorMessageText);
             }
-            document.body.removeChild(textArea);
         });
         
         // Закрытие модального окна
