@@ -1,0 +1,39 @@
+#include "stdlib.fc"
+#include "opcodes.fc"
+
+/* Статика NFT: index, адрес коллекции, владелец, content */
+get static_data() method_id("get_static_data") {
+  int index = get_data().slice().~load_uint(64);
+  slice col  = get_data().slice().~load_msg_addr();
+  slice owner= get_data().slice().~load_msg_addr();
+  return (index, col, owner);
+}
+
+/* get_nft_data: TIP-62 */
+(int inited, int index, slice collection, slice owner, cell content) get_nft_data() {
+  var ds = get_data().slice();
+  if (ds.empty?) { return (0, 0, null(), null(), null()); }
+  int idx = ds~load_uint(64);
+  slice col = ds~load_msg_addr();
+  slice own = ds~load_msg_addr();
+  cell cont = ds~load_ref();
+  return (-1, idx, col, own, cont);
+}
+
+/* Приём transfer */
+() recv_internal(int b, int v, cell full, slice body) impure {
+  int op = body~load_uint(32);
+  if (op != op::transfer()) { ;; игнор всего, кроме transfer
+      throw(40);
+  }
+  slice new_owner = body~load_msg_addr();
+  ;; меняем owner в data
+  var d = begin_cell()
+        .store_uint(get_data().slice().~load_uint(64), 64)  ;; index
+        .store_slice(get_data().slice().~load_msg_addr())   ;; collection
+        .store_slice(new_owner)                             ;; новый владелец
+        .store_ref(get_data().slice().~load_ref())          ;; content
+        .end_cell();
+  set_data(d);
+  return ();
+}
