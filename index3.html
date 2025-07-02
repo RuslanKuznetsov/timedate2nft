@@ -620,6 +620,7 @@
 
                 // Создаем транзакцию с оптимизированной суммой
                 const transaction = {
+                    network: 'testnet',
                     validUntil: reliableBlockchainTime + 900,
                     messages: [{
                         address: NFT_COLLECTION_ADDRESS,
