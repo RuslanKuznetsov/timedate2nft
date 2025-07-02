@@ -144,6 +144,7 @@ mintBtn.onclick = async () => {
   showStatus('Ожидание подтверждения в кошельке...');
   try {
     await tonConnectUI.sendTransaction({
+      network: 'testnet',
       validUntil: blockchainTime + 900,
       messages: [{
         address: COLLECTION_ADDR,
