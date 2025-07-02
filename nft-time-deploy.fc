@@ -1,0 +1,15 @@
+#include "stdlib.fc"
+
+() main () {
+  slice admin = slice_from_addr(<твой-wallet-address>);
+  cell data = begin_cell()
+     .store_slice(admin)          ;; admin_addr
+     .store_dict(null())          ;; dict_minutes
+     .store_dict(null())          ;; dict_hours
+     .store_dict(null())          ;; dict_days
+     .store_uint(0, 64)           ;; next_item_idx
+     .end_cell();
+  ;; stdout code-cell и data-cell – Web IDE сама сформирует адрес
+  dump_cell(get_code());   ;; код (из nft-time-collection.fc)
+  dump_cell(data);         ;; данные
+}
