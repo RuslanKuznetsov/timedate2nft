@@ -1,0 +1,102 @@
+#include "stdlib.fc"
+#include "opcodes.fc"
+
+/* --- CONSTANTS --- */
+int mint_fee  =  180000000; ;; 0.18 TON для покрытия gas+storage
+int commission=  100000000; ;; 0.10 TON автору
+
+/* --- STORAGE ---
+   [0] admin_addr (slice)
+   [1] dict_minutes   (dict)
+   [2] dict_hours
+   [3] dict_days
+   [4] next_item_idx  (uint64)             */
+() constructor(slice admin) impure {
+  admin_addr = admin;
+  next_item_idx = 0;
+}
+
+/* --- GETTERS (TIP-62) --- */
+(int next_idx, cell col_content, slice owner) get_collection_data() {
+  return ( next_item_idx , null(), admin_addr );
+}
+(slice addr) get_nft_address_by_index(int idx) {
+  ;; предсказуемый адрес: hash(init_cell)
+  cell code = get_code();
+  var data = begin_cell()
+      .store_uint(idx, 64)
+      .store_slice(my_addr())
+      .store_slice(admin_addr)
+      .store_ref(null())
+      .end_cell();
+  addr = new_slice_hash(code, data);
+  return (addr);
+}
+
+/* --- INTERNAL MESSAGE HANDLER --- */
+() recv_internal(int my_balance, int msg_value, cell in_msg, slice body) impure {
+  slice sender = in_msg.begin_parse().load_msg_addr();
+  int op = body~load_uint(32);
+
+  ;; ------ MINT ------
+  if (op == op::mint()) {
+      int ts  = body~load_uint(32);
+      slice img_url = body~load_ref().begin_parse();
+
+      ;; уникальность
+      int minute = ts / 60;
+      int hour   = ts / 3600;
+      int day    = ts / 86400;
+      if (dict_get(dict_minutes, minute) != null) throw(101);
+      if (dict_get(dict_hours  , hour  ) != null) throw(102);
+      if (dict_get(dict_days   , day   ) != null) throw(103);
+
+      ;; проверка оплаты
+      if (msg_value < mint_fee) throw(104);
+
+      ;; фиксируем
+      dict_minutes = dict_set(dict_minutes, minute, 1);
+      dict_hours   = dict_set(dict_hours  , hour  , 1);
+      dict_days    = dict_set(dict_days   , day   , 1);
+
+      ;; отправляем комиссию
+      send_raw_message(admin_addr, commission, 0, 0, null());
+
+      ;; генерируем init NFT
+      int curIdx = next_item_idx;
+      next_item_idx = next_item_idx + 1;
+
+      cell nft_code = get_code_nft(); ;; см. ниже
+      cell nft_data = begin_cell()
+           .store_uint(curIdx, 64)
+           .store_slice(my_addr())
+           .store_slice(sender)
+           .store_ref(  begin_cell()
+                         .store_uint(0,8)          ;; off-chain
+                         .store_slice(img_url)     ;; "/{idx}.json"
+                         .end_cell() )
+           .end_cell();
+
+      ;; деплой
+      send_raw_message(new_slice_hash(nft_code, nft_data), mint_fee, 3, 0,
+                       begin_cell()
+                       .store_uint(0,1)  ;; bounce
+                       .store_ref(begin_cell().store_uint(0,1).end_cell())
+                       .end_cell());
+
+      return ();
+  }
+
+  ;; ------ UPGRADE ------
+  if (op == op::upgrade() && equal_slice_bits(sender, admin_addr)) {
+      set_code(body~load_ref());
+      return ();
+  }
+}
+
+/* --- STORE NFT ITEM CODE AS REF IN DATA  (simplest way) --- */
+cell get_code_nft() inline asm "
+  DATA 2  ;; two refs: [code, data]
+  CTOS
+  PUSHREF -2
+";
